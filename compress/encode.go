@@ -7,28 +7,6 @@ const (
 	markerM4 = 16
 )
 
-func encodeLiteral(out []byte, lit []byte, firstBlock bool) []byte {
-	n := len(lit)
-	if n == 0 {
-		return out
-	}
-
-	switch {
-	case firstBlock && n <= 238:
-		out = append(out, byte(17+n))
-	case n <= 3:
-		out[len(out)-2] |= byte(n)
-	case n <= 18:
-		out = append(out, byte(n-3))
-	default:
-		out = append(out, 0)
-		out = encodeVarLen(out, n-18)
-	}
-
-	out = append(out, lit...)
-	return out
-}
-
 func encodeM2(out []byte, offset, length int) []byte {
 	offset--
 	out = append(out,

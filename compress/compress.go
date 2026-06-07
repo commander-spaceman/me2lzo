@@ -5,7 +5,7 @@ func Compress(src []byte) ([]byte, error) {
 	if srcLen <= maxMatchInputPad {
 		out := make([]byte, 0, srcLen+32)
 		if srcLen > 0 {
-			out = encodeLiteral(out, src, true)
+			out = encodeLiteral(out, src, true, false)
 		}
 		out = append(out, markerM4|1, 0, 0)
 		return out, nil
@@ -23,8 +23,8 @@ func Compress(src []byte) ([]byte, error) {
 	for {
 		dictIdx := hash4(src, pos)
 		matchPos := int(dict[dictIdx]) - 1
-		matched := false
 
+		matched := false
 		if matchPos >= 0 && pos != matchPos && pos-matchPos <= maxOffsetM4 {
 			matchOffset := pos - matchPos
 			if matchOffset <= maxOffsetM2 || src[matchPos+3] == src[pos+3] {
@@ -34,7 +34,7 @@ func Compress(src []byte) ([]byte, error) {
 					dict[dictIdx] = int32(pos + 1)
 
 					if pos != literalStart {
-						out = encodeLiteral(out, src[literalStart:pos], firstBlock)
+						out = encodeLiteral(out, src[literalStart:pos], firstBlock, true)
 						firstBlock = false
 						literalStart = pos
 					}
@@ -48,17 +48,9 @@ func Compress(src []byte) ([]byte, error) {
 						}
 						matchLen++
 					}
-					pos = pos + matchLen
+					pos += matchLen
 
-					switch {
-					case matchOffset <= maxOffsetM2:
-						out = encodeM2(out, matchOffset, matchLen)
-					case matchOffset <= maxOffsetM3:
-						out = encodeM3(out, matchOffset, matchLen)
-					default:
-						out = encodeM4(out, matchOffset, matchLen)
-					}
-
+					out = encodeMatch(out, matchOffset, matchLen)
 					literalStart = pos
 					matched = true
 				}
@@ -79,11 +71,44 @@ func Compress(src []byte) ([]byte, error) {
 		}
 	}
 
-	tail := srcLen - literalStart
-	if tail > 0 {
-		out = encodeLiteral(out, src[literalStart:literalStart+tail], firstBlock)
+	tailLen := srcLen - literalStart
+	if tailLen > 0 {
+		out = encodeLiteral(out, src[literalStart:srcLen], firstBlock, !firstBlock)
 	}
 
 	out = append(out, markerM4|1, 0, 0)
 	return out, nil
+}
+
+func encodeMatch(out []byte, offset, length int) []byte {
+	switch {
+	case offset <= maxOffsetM2 && length <= maxLenM2:
+		return encodeM2(out, offset, length)
+	case offset <= maxOffsetM3:
+		return encodeM3(out, offset, length)
+	default:
+		return encodeM4(out, offset, length)
+	}
+}
+
+func encodeLiteral(out []byte, lit []byte, firstBlock, hasPrevMatch bool) []byte {
+	n := len(lit)
+	if n == 0 {
+		return out
+	}
+
+	switch {
+	case firstBlock && n <= 238:
+		out = append(out, byte(17+n))
+	case !firstBlock && hasPrevMatch && n <= 3:
+		out[len(out)-2] |= byte(n)
+	case n <= 18:
+		out = append(out, byte(n-3))
+	default:
+		out = append(out, 0)
+		out = encodeVarLen(out, n-18)
+	}
+
+	out = append(out, lit...)
+	return out
 }
