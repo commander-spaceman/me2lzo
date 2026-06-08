@@ -5,13 +5,25 @@ Original Trilogy `.pcc` package files.
 
 ## Overview
 
-`me2lzo` provides a zero-dependency, MIT-licensed LZO1X library designed for
-ME2 OT's specific LZO block format. It handles both decompression of
-LZO-compressed PCC chunks and LZO1X-1 compression for writing compressed
-packages.
+`me2lzo` was built for [pcc-toolkit](https://github.com/commander-spaceman/pcc-toolkit),
+a Mass Effect 2 dialogue extraction toolkit. It provides a single, cohesive
+library for both LZO1X decompression and LZO1X-1 compression — purpose-built
+for ME2 OT's raw LZO block format (no stream terminators, no framing).
 
 The decompressor is byte-identical to the Oberhumer reference implementation
 on all tested ME2 OT blocks.
+
+### Why not use existing Go LZO libraries?
+
+- [`anchore/go-lzo`](https://github.com/anchore/go-lzo) (MIT) — excellent
+  decompressor, but decompression-only with no compression support.
+- [`woozymasta/lzo`](https://github.com/woozymasta/lzo) (MIT) — full
+  compressor and decompressor, but requires a stream terminator that ME2 OT
+  blocks don't include, making decompression incompatible.
+
+`me2lzo` fills the gap: a single dependency that handles both directions,
+directly compatible with ME2 OT's block format, with an API shaped around
+how `pcc-toolkit` consumes LZO data.
 
 ## Installation
 
